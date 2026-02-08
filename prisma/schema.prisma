@@ -1,0 +1,170 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  EMPLOYEE
+  SUPERVISOR
+  HR_ADMIN
+}
+
+
+
+enum Zone {
+  KILAMBA
+  CIDADE
+  TALATONA
+  VIANA
+  CAMAMA
+  PROVINCIAS
+}
+
+model User {
+  id           String  @id @default(cuid())
+  employeeCode String  @unique // Nº mecanográfico
+  name         String
+  storeCode    String  // Código da loja
+  zone         Zone    // Zona
+  position     String  // PROMOTOR, SUPERVISOR, GERENTE_LOJA, etc
+  role         Role    @default(EMPLOYEE)
+
+  passwordHash String
+  isActive     Boolean @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  evaluations  Evaluation[]
+}
+
+model Rubric {
+  id        String   @id @default(cuid())
+  position  String
+  title     String
+  version   Int      @default(1)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  items     RubricItem[]
+  bands     ClassificationBand[]
+  evaluations Evaluation[]
+}
+
+model RubricItem {
+  id        String @id @default(cuid())
+  rubricId  String
+  rubric    Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  category  String
+  question  String
+  description String?
+  maxPoints Int
+  order     Int
+
+  options   RubricOption[]
+}
+
+model RubricOption {
+  id      String @id @default(cuid())
+  itemId  String
+  item    RubricItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  label   String
+  points  Int
+  order   Int
+}
+
+model ClassificationBand {
+  id       String @id @default(cuid())
+  rubricId String
+  rubric   Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  level    String // OJT/JUNIOR/PLENO/SENIOR
+  minScore Float
+  maxScore Float
+}
+
+model Cycle {
+  id        String   @id @default(cuid())
+  key       String   @unique // YYYY-MM
+  name      String
+  startAt   DateTime
+  endAt     DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  evaluations Evaluation[]
+}
+
+model Evaluation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rubricId    String
+  rubric      Rubric   @relation(fields: [rubricId], references: [id])
+
+  cycleId     String
+  cycle       Cycle    @relation(fields: [cycleId], references: [id])
+
+  status      String   @default("DRAFT") // DRAFT/SUBMITTED
+  totalScore  Float    @default(0)
+  level       String   @default("")
+  submittedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  draft       EvaluationDraft?
+  answers     EvaluationAnswer[]
+  audits      AuditLog[]
+
+  @@index([userId, cycleId])
+  @@index([cycleId, status])
+}
+
+model EvaluationDraft {
+  id           String   @id @default(cuid())
+  evaluationId String   @unique
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  answersJson  Json
+  progress     Int      @default(0)
+  lastSavedAt  DateTime @default(now())
+}
+
+model EvaluationAnswer {
+  id           String @id @default(cuid())
+  evaluationId String
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  itemId       String
+  item         RubricItem @relation(fields: [itemId], references: [id])
+
+  optionId     String
+  option       RubricOption @relation(fields: [optionId], references: [id])
+
+  points       Int
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  evaluationId String?
+  evaluation   Evaluation? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+
+  userId       String?
+  user         User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action       String
+  ip           String?
+  userAgent    String?
+  device       String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([evaluationId, createdAt])
+}
