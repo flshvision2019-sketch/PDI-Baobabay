@@ -1,0 +1,8 @@
+export default function Home() {
+  return (
+    <div style={{padding:40,fontFamily:"Arial"}}>
+      <h1>PDI Baobabay</h1>
+      <p>Sistema ativo com sucesso.</p>
+    </div>
+  )
+}
